@@ -1,0 +1,37 @@
+<section class="import-confirm">
+  <div class="preview">
+    <% if @image_url.present? %>
+      <img src="<%= h(@image_url) %>" alt="プレビュー">
+    <% elsif @provider == :x %>
+      <blockquote class="twitter-tweet">
+        <a href="<%= h(@url) %>" target="_blank" rel="noopener noreferrer">
+          <i class="fab fa-x-twitter"></i><strong>X</strong>
+          <span>@<%= h(@username) %></span><span>投稿をXで開く</span>
+        </a>
+      </blockquote>
+    <% else %>
+      <div class="provider-fallback-preview">
+        <i class="<%= provider_icon(@provider) %>"></i>
+        <strong><%= provider_name(@provider) %></strong>
+        <a class="button" href="<%= h(@url) %>" target="_blank" rel="noopener noreferrer"><%= @provider == :instagram ? '投稿を見る' : '元リンクを開く' %></a>
+      </div>
+    <% end %>
+  </div>
+  <form class="form-card" action="/reference" method="post">
+    <input type="hidden" name="reference_url" value="<%= h(@url) %>">
+    <input type="hidden" name="reference_imageurl" value="<%= h(@image_url) %>">
+    <input type="hidden" name="reference_start_time" value="<%= h(@start_time) %>">
+    <input type="hidden" name="reference_end_time" value="<%= h(@end_time) %>">
+    <label>解説<textarea name="reference_text" maxlength="255" placeholder="メモや気づきを入力"></textarea></label>
+    <label>追加したいボード
+      <select name="board_id">
+        <option value="">あとで選ぶ</option>
+        <% @boards.each do |board| %>
+          <option value="<%= board.board_id %>"><%= h(board.board_name) %></option>
+        <% end %>
+      </select>
+    </label>
+    <button class="button primary import-button" type="submit">インポート</button>
+  </form>
+</section>
+<% if @provider == :x %><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script><% end %>

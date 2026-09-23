@@ -1,0 +1,13 @@
+source 'https://rubygems.org'
+
+gem 'activerecord', '~> 7.0'
+gem 'pg', '~> 1.5'
+gem 'rake', '~> 13.0'
+gem 'sinatra', '~> 3.2'
+gem 'sinatra-activerecord', '~> 2.0'
+gem 'sinatra-contrib', '~> 3.2'
+gem 'puma', '~> 6.4'
+gem 'logger'
+gem 'ostruct'
+gem 'bcrypt', '~> 3.1'
+gem 'sqlite3'

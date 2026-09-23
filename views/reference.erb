@@ -1,0 +1,26 @@
+<section class="import-start">
+  <form action="/reference/preview" method="post" enctype="multipart/form-data" aria-label="リファレンスをアップロード">
+    <div class="url-field">
+      <input type="url" name="reference_url" placeholder="URLを入力" aria-label="リファレンスのURL" autofocus>
+      <button class="button primary import-submit" type="submit" aria-label="URLを読み込む">
+        読み込む <i class="fas fa-arrow-right"></i>
+      </button>
+    </div>
+    <p class="paste-label">ペーストでURLからアップロード</p>
+    <label class="file-drop">
+      <i class="fas fa-upload"></i> ファイルをアップロード
+      <input id="reference-file" type="file" name="file" accept="image/*">
+    </label>
+  </form>
+</section>
+
+<script>
+  const fileInput = document.querySelector("#reference-file");
+  if (fileInput) {
+    fileInput.addEventListener("change", function(e) {
+      if (e.target.files[0]) {
+        e.target.form.submit();
+      }
+    });
+  }
+</script>

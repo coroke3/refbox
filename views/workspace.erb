@@ -1,0 +1,157 @@
+<div class="board-workspace <%= 'read-only' unless @is_owner %>">
+  <header class="workspace-header">
+    <div class="workspace-title-row">
+      <h1><%= h(@board.board_name) %></h1>
+      <% if @is_owner %>
+        <form action="/board/<%= @board.board_id %>/toggle_public" method="post" id="toggle-public-form">
+          <button type="submit" id="toggle-public-btn"
+                  class="badge <%= @board.board_is_public ? 'public-badge' : 'private-badge' %>"
+                  title="クリックで公開/非公開を切り替え" aria-label="クリックで公開非公開を切り替え"
+                  aria-pressed="<%= @board.board_is_public %>">
+            <i class="fas fa-<%= @board.board_is_public ? 'globe' : 'lock' %>"></i>
+            <span><%= @board.board_is_public ? '公開' : '非公開' %></span>
+          </button>
+        </form>
+      <% else %>
+        <span class="badge <%= @board.board_is_public ? 'public-badge' : 'private-badge' %>">
+          <i class="fas fa-<%= @board.board_is_public ? 'globe' : 'lock' %>"></i>
+          <%= @board.board_is_public ? '公開' : '非公開' %>
+        </span>
+      <% end %>
+    </div>
+  </header>
+
+  <% if @is_owner %>
+    <aside class="library-panel">
+      <p class="panel-hint">ライブラリ · クリックでシーンに追加</p>
+      <% if @library.any? %>
+        <div class="library-grid">
+          <% @library.each do |item| %>
+            <% image = item.image_url.presence || item.reference_imageurl.presence %>
+            <form action="/board/<%= @board.board_id %>/reference" method="post">
+              <input type="hidden" name="slide_id" value="<%= @slide.id %>">
+              <input type="hidden" name="reference_id" value="<%= item.reference_id %>">
+              <button class="library-card" type="submit" aria-label="リファレンスを追加">
+                <% if image.present? %>
+                  <img src="<%= h(image) %>" alt="">
+                <% else %>
+                  <i class="<%= provider_icon(reference_provider(item.reference_url)) %>"></i>
+                <% end %>
+                <span class="insert-tag"><i class="fas fa-plus"></i> 追加する</span>
+              </button>
+            </form>
+          <% end %>
+        </div>
+      <% else %>
+        <p class="panel-empty">まずホームからリファレンスを追加してください。</p>
+      <% end %>
+    </aside>
+  <% end %>
+
+  <main class="stage-panel">
+    <% if @is_owner %>
+      <button class="library-toggle" id="toggle-library" type="button" title="ライブラリを折りたたむ"
+              aria-label="ライブラリを折りたたむ" aria-expanded="true">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+    <% end %>
+    <div class="canvas-toolbar">
+      <strong>シーン <%= @slides.index(@slide) + 1 %></strong>
+      <% if @is_owner %>
+        <div class="canvas-tools">
+          <button class="tool-button active" type="button" data-tool="select" title="選択・移動"><i class="fas fa-arrow-pointer"></i> 選択</button>
+          <button class="tool-button" type="button" data-tool="pen" title="ペンで描く"><i class="fas fa-pen"></i> ペン</button>
+          <button class="tool-button" type="button" id="add-note" title="付箋を追加"><i class="fas fa-note-sticky"></i> 付箋</button>
+          <button class="tool-button" type="button" id="undo-stroke" title="最後の線を消す"><i class="fas fa-rotate-left"></i> 描画を戻す</button>
+          <button class="tool-button" type="button" id="save-slide" title="シーンを保存"><i class="fas fa-floppy-disk"></i> 保存</button>
+        </div>
+        <small id="save-status" role="status">保存済み</small>
+      <% end %>
+    </div>
+
+    <p class="mobile-canvas-hint">左右にスクロールできます</p>
+    <div class="canvas-shell">
+      <div class="slide-canvas" id="slide-canvas" data-save-url="/board/<%= @board.board_id %>/slide/<%= @slide.id %>">
+        <svg class="drawing-layer" id="drawing-layer" viewBox="0 0 1000 562.5" preserveAspectRatio="none" aria-label="ペン描画">
+          <% Array(@slide_data['strokes']).each do |stroke| %>
+            <polyline points="<%= h(Array(stroke).map { |point| Array(point).map(&:to_f).join(',') }.join(' ')) %>" />
+          <% end %>
+        </svg>
+
+        <% Array(@slide_data['refs']).each do |placement| %>
+          <% item = @references_by_id[placement['id'].to_i] %>
+          <% next unless item %>
+          <% image = item.image_url.presence || item.reference_imageurl.presence %>
+          <article class="canvas-reference canvas-item" data-id="<%= item.reference_id %>" style="left:<%= placement['x'].to_f %>%;top:<%= placement['y'].to_f %>%;width:<%= placement['w'].to_f %>%">
+            <div class="canvas-item-bar">
+              <% if @is_owner %>
+                <span class="drag-grip" title="ドラッグして移動"><i class="fas fa-grip-lines"></i></span>
+              <% end %>
+              <% if (url = source_url(item.reference_url)) %>
+                <a href="<%= h(url) %>" target="_blank" rel="noopener noreferrer" title="元ページ">
+                  <i class="fas fa-arrow-up-right-from-square"></i>
+                </a>
+              <% end %>
+              <% if @is_owner %>
+                <button class="remove-item" type="button" title="シーンから外す" aria-label="シーンから外す">
+                  <i class="fas fa-times"></i>
+                </button>
+              <% end %>
+            </div>
+            <% if image.present? %>
+              <img src="<%= h(image) %>" alt="">
+            <% else %>
+              <div class="canvas-fallback"><i class="<%= provider_icon(reference_provider(item.reference_url)) %>"></i></div>
+            <% end %>
+            <% if @is_owner %><span class="resize-grip" title="ドラッグしてサイズ変更"></span><% end %>
+          </article>
+        <% end %>
+
+        <% Array(@slide_data['notes']).each do |note| %>
+          <div class="canvas-note canvas-item" data-note-id="<%= h(note['id']) %>" style="left:<%= note['x'].to_f %>%;top:<%= note['y'].to_f %>%;width:<%= note['w'].to_f %>%">
+            <div class="canvas-item-bar">
+              <% if @is_owner %>
+                <span class="drag-grip" title="ドラッグして移動"><i class="fas fa-grip-lines"></i></span>
+                <button class="remove-item" type="button" title="付箋を削除"><i class="fas fa-times"></i></button>
+              <% end %>
+            </div>
+            <textarea maxlength="500" placeholder="メモを書く" <%= 'readonly' unless @is_owner %>><%= h(note['text']) %></textarea>
+            <% if @is_owner %><span class="resize-grip" title="ドラッグしてサイズ変更"></span><% end %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </main>
+
+  <aside class="scenes-panel">
+    <p class="panel-hint">シーン <%= @slides.length %></p>
+    <% @slides.each_with_index do |slide, index| %>
+      <% data = slide.data %>
+      <% item = @references_by_id[Array(data['refs']).first&.dig('id').to_i] %>
+      <% image = item&.image_url.presence || item&.reference_imageurl.presence %>
+      <div class="slide-list-item <%= 'active' if slide == @slide %>">
+        <a href="/board/<%= @board.board_id %>?slide_id=<%= slide.id %>" class="slide-card-link">
+          <span class="slide-thumb"><% if image.present? %><img src="<%= h(image) %>" alt=""><% end %></span>
+          <strong>シーン <%= index + 1 %></strong>
+          <small><%= Array(data['refs']).size %>件のリファレンス</small>
+        </a>
+        <% if @is_owner %>
+          <form action="/board/<%= @board.board_id %>/slide/<%= slide.id %>/delete" method="post"
+                data-confirm="このシーンを削除しますか？">
+            <button type="submit" title="シーンを削除"><i class="fas fa-times"></i></button>
+          </form>
+        <% end %>
+      </div>
+    <% end %>
+    <% if @is_owner %>
+      <form action="/board/<%= @board.board_id %>/slide" method="post">
+        <button class="scene-add-btn" type="submit" title="シーンを追加"><i class="fas fa-plus"></i></button>
+      </form>
+    <% end %>
+  </aside>
+</div>
+
+<% if @is_owner %>
+  <script id="stroke-data" type="application/json"><%= JSON.generate(@slide_data['strokes'] || []).gsub('<', '\\u003c') %></script>
+  <script src="/js/board.js" defer></script>
+<% end %>

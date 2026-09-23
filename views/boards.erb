@@ -1,0 +1,30 @@
+<section class="boards-page">
+  <h1>あなたのボード</h1>
+  <details class="new-board">
+    <summary title="新しいボードを作成"><i class="fas fa-plus"></i></summary>
+    <form action="/board" method="post">
+      <input name="board_name" placeholder="新しいボード名" maxlength="80" required>
+      <label><input type="checkbox" name="board_is_public" value="1"> 公開する</label>
+      <button class="button primary" type="submit">作成</button>
+    </form>
+  </details>
+
+  <% if @boards.empty? %>
+    <section class="empty"><p>右上の＋から新しいボードを追加できます。</p></section>
+  <% else %>
+    <div class="board-grid">
+      <% @boards.each do |board| %>
+        <article class="board-card">
+          <a href="/board/<%= board.board_id %>">
+            <div class="board-cover"><% unless board.board_is_public %><i class="fas fa-lock"></i><% end %></div>
+            <h2><%= h(board.board_name) %></h2>
+            <p><%= h(board.user&.user_name || current_user.user_name) %></p>
+          </a>
+          <form action="/board/<%= board.board_id %>/delete" method="post" data-confirm="このボードを削除しますか？">
+            <button class="icon-button" type="submit" title="削除"><i class="fas fa-times"></i></button>
+          </form>
+        </article>
+      <% end %>
+    </div>
+  <% end %>
+</section>

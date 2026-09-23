@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= h(@title || 'RefBOX') %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;900&family=Righteous&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css?v=8">
+  <script src="https://kit.fontawesome.com/174caed35b.js" crossorigin="anonymous"></script>
+</head>
+<body class="<%= current_user ? "" : "auth-body" %>">
+  <% if current_user %>
+    <aside class="sidebar">
+      <a class="brand" href="/">refbox</a>
+      <nav>
+        <a class="<%= request.path_info == "/" ? "active" : "" %>" href="/" aria-label="ホーム" title="ホーム"><i class="fas fa-home"></i></a>
+        <a class="<%= request.path_info.start_with?("/reference") ? "active" : "" %>" href="/reference" aria-label="リファレンスを追加" title="リファレンスを追加"><i class="fas fa-upload"></i></a>
+        <a class="<%= request.path_info.start_with?("/board") ? "active" : "" %>" href="/board" aria-label="ボード" title="ボード"><i class="far fa-folder-open"></i></a>
+      </nav>
+      <details class="account">
+        <summary aria-label="アカウント" title="アカウント"><i class="far fa-user"></i></summary>
+        <div class="account-menu">
+          <strong><%= h(current_user.user_name) %></strong>
+          <form action="/logout" method="post"><button type="submit">ログアウト</button></form>
+        </div>
+      </details>
+    </aside>
+  <% end %>
+
+  <main class="<%= current_user ? "app-main" : "" %>">
+    <% if @error %><div class="notice error-notice"><%= h(@error) %></div><% end %>
+    <%= yield %>
+  </main>
+
+  <script>
+    document.addEventListener("paste", function(e) {
+      const active = document.activeElement;
+      const isInput = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
+      const data = e.clipboardData;
+      if (!data) return;
+      for (const item of data.items || []) {
+        if (item.type.includes("image")) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            const form = document.createElement("form");
+            form.method = "POST"; form.action = "/reference/preview"; form.enctype = "multipart/form-data";
+            const input = document.createElement("input"); input.type = "file"; input.name = "file";
+            const files = new DataTransfer(); files.items.add(file); input.files = files.files;
+            form.appendChild(input); document.body.appendChild(form); form.submit();
+            return;
+          }
+        }
+      }
+      const text = data.getData("text").trim();
+      if (/^https?:\/\//i.test(text) && (!isInput || active.name === "reference_url")) {
+        e.preventDefault();
+        const form = document.createElement("form"); form.method = "POST"; form.action = "/reference/preview";
+        const input = document.createElement("input"); input.type = "hidden"; input.name = "reference_url"; input.value = text;
+        form.appendChild(input); document.body.appendChild(form); form.submit();
+      }
+    });
+    document.querySelectorAll("form[data-confirm]").forEach(function(form) {
+      form.addEventListener("submit", function(e) {
+        if (!confirm(form.dataset.confirm)) {
+          e.preventDefault();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

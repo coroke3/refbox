@@ -1,0 +1,101 @@
+<% if @items.empty? %>
+  <section class="empty">
+    <div class="empty-icon"><i class="fas fa-cloud-arrow-up"></i></div>
+    <h1>リファレンスをアップロードしよう</h1>
+    <p>画像や動画・SNSのURLを保存して、あなただけのリファレンス集を始めましょう。</p>
+    <a class="button primary" href="/reference"><i class="fas fa-upload"></i>&nbsp; アップロードする</a>
+  </section>
+<% else %>
+  <section class="reference-grid">
+    <% @items.each do |item| %>
+      <% image = item.image_url.presence || item.reference_imageurl.presence %>
+      <% provider = reference_provider(item.reference_url) %>
+      <article class="reference-card">
+        <button class="reference-visual" type="button" aria-label="リファレンスを開く"
+                onclick="document.getElementById('reference-<%= item.reference_id %>').showModal()">
+          <% if image.present? %>
+            <img src="<%= h(image) %>" alt="">
+          <% else %>
+            <span class="provider-feed-card <%= provider %>-feed-card"><i class="<%= provider_icon(provider) %>"></i></span>
+          <% end %>
+        </button>
+      </article>
+    <% end %>
+  </section>
+
+  <% @items.each do |item| %>
+    <% image = item.image_url.presence || item.reference_imageurl.presence %>
+    <% provider = reference_provider(item.reference_url) %>
+    <% embed = video_embed_url(item) %>
+    <% url = source_url(item.reference_url) %>
+    <dialog class="reference-dialog" id="reference-<%= item.reference_id %>" onclick="if(event.target===this)this.close()">
+      <button class="dialog-close icon-button" type="button" onclick="this.closest('dialog').close()"><i class="fas fa-times"></i></button>
+      <div class="dialog-grid">
+        <div class="dialog-preview">
+          <% if embed %>
+            <% if image.present? %>
+              <img src="<%= h(image) %>" alt="">
+            <% else %>
+              <div class="provider-feed-card"><i class="<%= provider_icon(provider) %>"></i></div>
+            <% end %>
+            <button class="preview-play" type="button" data-embed="<%= h(embed) %>" onclick="playVideo(this)">
+              <i class="fas fa-play"></i>
+            </button>
+            <iframe title="動画" hidden allowfullscreen
+                    allow="autoplay; accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+          <% elsif image.present? %>
+            <img src="<%= h(image) %>" alt="">
+          <% else %>
+            <div class="provider-feed-card"><i class="<%= provider_icon(provider) %>"></i><strong><%= provider_name(provider) %></strong></div>
+          <% end %>
+        </div>
+        <div class="dialog-info">
+          <form action="/reference/<%= item.reference_id %>" method="post">
+            <% if %i[youtube vimeo].include?(provider) %>
+              <div class="range-line is-open">
+                <label>開始
+                  <input type="text" name="reference_start_time" value="<%= h(item.reference_start_time.presence || '00:00') %>"
+                         placeholder="00:00" pattern="[0-9:]*" title="開始時間 (分:秒)">
+                </label>
+                <label>終了
+                  <input type="text" name="reference_end_time" value="<%= h(item.reference_end_time.presence || '00:30') %>"
+                         placeholder="00:30" pattern="[0-9:]*" title="終了時間 (分:秒)">
+                </label>
+              </div>
+            <% end %>
+            <label>テキスト</label>
+            <textarea name="reference_text" maxlength="255" placeholder="メモを入力"><%= h(item.reference_text) %></textarea>
+            <div class="dialog-actions">
+              <% if url %>
+                <a class="button" href="<%= h(url) %>" target="_blank" rel="noopener noreferrer">
+                  <i class="fas fa-arrow-up-right-from-square"></i>&nbsp; 元ページ
+                </a>
+              <% end %>
+              <button class="button primary" type="submit">保存</button>
+            </div>
+          </form>
+          <form action="/reference/<%= item.reference_id %>/delete" method="post" data-confirm="このリファレンスを削除しますか？">
+            <button class="dialog-delete" type="submit"><i class="fas fa-trash"></i> 削除</button>
+          </form>
+        </div>
+      </div>
+    </dialog>
+  <% end %>
+  <script>
+    function playVideo(btn) {
+      const frame = btn.nextElementSibling;
+      if (!btn.dataset.embed || !frame) return;
+      const url = new URL(btn.dataset.embed);
+      url.searchParams.set('autoplay', '1');
+      frame.src = url;
+      frame.hidden = false;
+      btn.hidden = true;
+    }
+    document.querySelectorAll('.reference-dialog').forEach(d => d.addEventListener('close', () => {
+      const f = d.querySelector('iframe');
+      if (f) { f.src = ''; f.hidden = true; }
+      const p = d.querySelector('.preview-play');
+      if (p) p.hidden = false;
+    }));
+  </script>
+<% end %>

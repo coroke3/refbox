@@ -1,0 +1,11 @@
+default_env: &default
+  adapter: postgresql
+  encoding: unicode
+  database: la12_ws_original
+
+
+development:
+  <<: *default
+
+production:
+  <<: *default
