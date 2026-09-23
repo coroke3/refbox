@@ -5,13 +5,7 @@ require 'json'
 require 'cgi'
 require 'open3'
 
-begin
-  ActiveRecord::Base.establish_connection
-  ActiveRecord::Base.connection.execute('SELECT 1')
-rescue StandardError
-  ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: 'db/development.sqlite3')
-end
-ActiveRecord::MigrationContext.new('db/migrate').migrate if ActiveRecord::Base.connection.adapter_name == 'SQLite'
+ActiveRecord::Base.establish_connection
 
 class User < ActiveRecord::Base
   self.table_name = 'user'

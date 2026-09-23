@@ -1,34 +1,241 @@
 <section class="video-import">
   <h1><%= @provider == :vimeo ? 'Vimeo' : 'YouTube' %>からインポート</h1>
+
   <div class="video-box">
     <div class="video-preview">
-      <% if @image_url.present? %>
+      <% if @provider == :youtube && (youtube_id = Reference.youtube_id(@url)) %>
+        <div id="youtube-player"></div>
+      <% elsif @image_url.present? %>
         <img src="<%= h(@image_url) %>" alt="動画プレビュー">
       <% else %>
-        <div class="provider-fallback-preview"><i class="fas fa-film"></i><strong>動画プレビュー</strong></div>
+        <div class="provider-fallback-preview">
+          <i class="fas fa-film"></i>
+          <strong>動画プレビュー</strong>
+        </div>
       <% end %>
     </div>
+
     <form action="/reference/preview/confirm" method="post">
       <input type="hidden" name="reference_url" value="<%= h(@url) %>">
       <input type="hidden" name="reference_imageurl" value="<%= h(@image_url) %>">
-      <div class="range-line">
-        <label>開始<input type="text" name="reference_start_time" value="<%= h(@start_time) %>" placeholder="00:00" inputmode="numeric" required></label>
-        <label>終了<input type="text" name="reference_end_time" value="<%= h(@end_time) %>" placeholder="00:30" inputmode="numeric" required></label>
+
+      <div class="range-line is-open">
+        <label>
+          開始
+          <input
+            id="start-time"
+            type="text"
+            name="reference_start_time"
+            value="<%= h(@start_time) %>"
+            placeholder="00:00"
+            required
+          >
+        </label>
+
+        <label>
+          終了
+          <input
+            id="end-time"
+            type="text"
+            name="reference_end_time"
+            value="<%= h(@end_time) %>"
+            placeholder="00:30"
+            required
+          >
+        </label>
       </div>
-      <input class="video-range" type="range" min="0" max="3600" value="<%= time_seconds(@start_time).to_i %>" aria-label="開始位置">
+
+      <label>
+        開始位置
+        <input
+          id="start-range"
+          class="video-range"
+          type="range"
+          min="0"
+          max="1"
+          value="0"
+        >
+      </label>
+
+      <label>
+        終了位置
+        <input
+          id="end-range"
+          class="video-range"
+          type="range"
+          min="0"
+          max="1"
+          value="1"
+        >
+      </label>
+
       <div class="video-actions">
-        <button class="button" type="button" onclick="this.closest('form').querySelector('.range-line').classList.toggle('is-open')">範囲指定する</button>
-        <button class="button primary" type="submit">インポート</button>
+        <button id="set-start" class="button" type="button">
+          現在位置を開始にする
+        </button>
+
+        <button id="set-end" class="button" type="button">
+          現在位置を終了にする
+        </button>
+
+        <button class="button primary" type="submit">
+          インポート
+        </button>
       </div>
     </form>
   </div>
 </section>
-<script>
-  document.querySelector('.video-range').addEventListener('input', function() {
-    const seconds = Number(this.value);
-    const minutes = Math.floor(seconds / 60);
-    const time = [Math.floor(minutes / 60), minutes % 60, seconds % 60];
-    this.form.elements.reference_start_time.value = (minutes >= 60 ? time : time.slice(1)).map(n => String(n).padStart(2, '0')).join(':');
-    this.form.querySelector('.range-line').classList.add('is-open');
-  });
-</script>
+
+<% if @provider == :youtube && youtube_id %>
+  <script src="https://www.youtube.com/iframe_api"></script>
+
+  <script>
+    let player;
+
+    const startRange = document.getElementById('start-range');
+    const endRange = document.getElementById('end-range');
+    const startInput = document.getElementById('start-time');
+    const endInput = document.getElementById('end-time');
+
+    function secondsToTime(seconds) {
+      seconds = Math.max(0, Math.floor(seconds));
+
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+
+      if (hours > 0) {
+        return [
+          hours,
+          minutes,
+          secs
+        ].map(value => String(value).padStart(2, '0')).join(':');
+      }
+
+      return [
+        minutes,
+        secs
+      ].map(value => String(value).padStart(2, '0')).join(':');
+    }
+
+    function timeToSeconds(value) {
+      const parts = value.split(':').map(Number);
+
+      if (parts.length === 2) {
+        return parts[0] * 60 + parts[1];
+      }
+
+      if (parts.length === 3) {
+        return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      }
+
+      return 0;
+    }
+
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('youtube-player', {
+        width: '100%',
+        height: '100%',
+        videoId: '<%= h(youtube_id) %>',
+        playerVars: {
+          playsinline: 1,
+          rel: 0
+        },
+        events: {
+          onReady: onPlayerReady
+        }
+      });
+    }
+
+    function onPlayerReady() {
+      const duration = Math.floor(player.getDuration());
+
+      startRange.max = duration;
+      endRange.max = duration;
+
+      const start = Math.min(
+        timeToSeconds(startInput.value),
+        duration
+      );
+
+      let end = timeToSeconds(endInput.value);
+
+      if (end <= 0 || end > duration) {
+        end = duration;
+      }
+
+      startRange.value = start;
+      endRange.value = end;
+
+      startInput.value = secondsToTime(start);
+      endInput.value = secondsToTime(end);
+    }
+
+    startRange.addEventListener('input', function () {
+      let seconds = Number(this.value);
+
+      if (seconds >= Number(endRange.value)) {
+        seconds = Math.max(0, Number(endRange.value) - 1);
+        this.value = seconds;
+      }
+
+      startInput.value = secondsToTime(seconds);
+
+      if (player) {
+        player.seekTo(seconds, true);
+      }
+    });
+
+    endRange.addEventListener('input', function () {
+      let seconds = Number(this.value);
+
+      if (seconds <= Number(startRange.value)) {
+        seconds = Number(startRange.value) + 1;
+        this.value = seconds;
+      }
+
+      endInput.value = secondsToTime(seconds);
+
+      if (player) {
+        player.seekTo(seconds, true);
+      }
+    });
+
+    document.getElementById('set-start').addEventListener('click', function () {
+      if (!player) return;
+
+      const seconds = Math.floor(player.getCurrentTime());
+
+      if (seconds >= Number(endRange.value)) return;
+
+      startRange.value = seconds;
+      startInput.value = secondsToTime(seconds);
+    });
+
+    document.getElementById('set-end').addEventListener('click', function () {
+      if (!player) return;
+
+      const seconds = Math.floor(player.getCurrentTime());
+
+      if (seconds <= Number(startRange.value)) return;
+
+      endRange.value = seconds;
+      endInput.value = secondsToTime(seconds);
+    });
+
+    startInput.addEventListener('change', function () {
+      const seconds = timeToSeconds(this.value);
+
+      startRange.value = seconds;
+
+      if (player) {
+        player.seekTo(seconds, true);
+      }
+    });
+
+    endInput.addEventListener('change', function () {
+      const seconds = timeToSeconds(this.value);
+      endRange.value = seconds;
+    });
+  </script>
+<% end %>
