@@ -10,8 +10,6 @@ require 'fileutils'
 enable :sessions
 use Rack::MethodOverride
 
-set :bind, '0.0.0.0'
-set :port, ENV['PORT'] || 4567
 set :public_folder, File.join(__dir__, 'public')
 FileUtils.mkdir_p(File.join(__dir__, 'public/uploads'))
 
